@@ -34,7 +34,7 @@ def load_data():
 def load_model():
     """加载预训练的TabPFN模型"""
     try:
-        with open('tabpfn_model.pkl', 'rb') as f:
+        with open('xgboost_model.pkl', 'rb') as f:
             model = pickle.load(f)
         return model
     except FileNotFoundError:
@@ -142,6 +142,7 @@ elif page == "LIME 可视化解释":
         else:
 
             st.error("模型未能成功加载，无法生成解释。")
+
 
 
 
