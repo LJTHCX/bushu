@@ -37,9 +37,7 @@ def load_model():
         with open('xgboost_model.pkl', 'rb') as f:
             model = pickle.load(f)
         return model
-    except FileNotFoundError:
-        st.error("错误：找不到 'tabpfn_model.pkl' 文件。请确保模型文件与APP在同一目录下。")
-        return None
+
 
 
 # 加载资源
@@ -141,4 +139,5 @@ elif page == "LIME 可视化解释":
         else:
 
             st.error("模型未能成功加载，无法生成解释。")
+
 
