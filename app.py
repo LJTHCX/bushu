@@ -77,7 +77,7 @@ def user_input_features():
 # --- 主界面 ---
 st.title("染色体非整倍体风险智能预测与解释系统")
 
-# 更新后的页面选择，已移除SHAP
+# 页面选择
 page = st.selectbox("选择功能页面", ["在线预测 (Online Prediction)", "LIME 可视化解释"])
 
 input_df = user_input_features()
@@ -139,4 +139,5 @@ elif page == "LIME 可视化解释":
                 st.subheader("预测结果的LIME局部解释")
                 st.components.v1.html(lime_exp.as_html(), height=800, scrolling=True)
         else:
+
             st.error("模型未能成功加载，无法生成解释。")
