@@ -1,5 +1,5 @@
 import streamlit as st
-import pickle
+import joblib  # 1. 从 pickle 改为 joblib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -20,25 +20,32 @@ plt.rcParams['axes.unicode_minus'] = False
 @st.cache_data
 def load_data():
     """加载原始数据用于获取特征名称和LIME背景数据"""
-    df = pd.read_excel('数据.xlsx')
-    # 确保列名与模型训练时一致
-    if '染色体的非整倍体' in df.columns:
-        X = df.drop('染色体的非整倍体', axis=1)
-    else:
-        # 如果目标变量不存在，假定所有列都是特征
-        X = df
-    return X
+    # 为了部署方便，通常建议将数据文件和应用代码放在一起
+    try:
+        df = pd.read_excel('数据.xlsx')
+        # 确保列名与模型训练时一致
+        if '染色体的非整倍体' in df.columns:
+            X = df.drop('染色体的非整倍体', axis=1)
+        else:
+            # 如果目标变量不存在，假定所有列都是特征
+            X = df
+        return X
+    except FileNotFoundError:
+        st.error("错误：找不到 '数据.xlsx' 文件。请确保数据文件与APP在同一目录下。")
+        return None
 
 
 @st.cache_resource
 def load_model():
-    """加载预训练的TabPFN模型"""
+    """加载预训练的XGBoost模型"""  # 2. 更新注释
     try:
-        with open('xgboost_model.joblib', 'rb') as f:
-            model = pickle.load(f)
+        # 3. 更新模型文件名并使用 joblib.load
+        with open('model.joblib', 'rb') as f:
+            model = joblib.load(f)
         return model
     except FileNotFoundError:
-        st.error("")
+        # 4. 更新错误提示信息
+        st.error("错误：找不到 'model.joblib' 文件。请确保您已运行训练脚本并生成了模型文件。")
         return None
 
 
@@ -46,7 +53,12 @@ def load_model():
 # 加载资源
 X_train = load_data()
 model = load_model()
-feature_names = X_train.columns.tolist()
+
+# 只有在数据成功加载后才获取特征名称
+if X_train is not None:
+    feature_names = X_train.columns.tolist()
+else:
+    feature_names = [] # 如果数据加载失败，提供一个空列表以避免错误
 
 
 # --- 用户输入功能模块 ---
@@ -121,8 +133,9 @@ elif page == "LIME 可视化解释":
         "LIME 从局部角度解释单个预测。它告诉我们对于您输入的这个特定样本，哪些特征及其数值最重要地影响了最终的预测结果。")
     st.write("---")
 
+    # 确保所有资源都已加载
     if st.button("生成LIME解释图"):
-        if model is not None:
+        if model is not None and X_train is not None:
             with st.spinner('正在计算LIME解释，请稍候...'):
                 lime_explainer = LimeTabularExplainer(
                     training_data=X_train.values,
@@ -140,10 +153,4 @@ elif page == "LIME 可视化解释":
                 st.subheader("预测结果的LIME局部解释")
                 st.components.v1.html(lime_exp.as_html(), height=800, scrolling=True)
         else:
-
-            st.error("模型未能成功加载，无法生成解释。")
-
-
-
-
-
+            st.error("模型或数据未能成功加载，无法生成解释。")
