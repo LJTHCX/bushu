@@ -5,5 +5,5 @@ pandas
 matplotlib
 scikit-learn
 lime
+xgboost
 openpyxl
-
