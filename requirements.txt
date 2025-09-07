@@ -1,10 +1,1 @@
-pip install streamlit
-pip install joblib
-pip install numpy
-pip install pandas
-pip install shap
-pip install matplotlib
-pip install scikit-learn
-pip install lime
-
 
