@@ -21,7 +21,7 @@ plt.rcParams['axes.unicode_minus'] = False
 def load_data():
     """加载原始数据用于获取特征名称和LIME背景数据"""
     try:
-        df = pd.read_excel('特征数据.xlsx')
+        df = pd.read_excel('数据.xlsx')
         if '染色体的非整倍体' in df.columns:
             X = df.drop('染色体的非整倍体', axis=1)
         else:
@@ -172,5 +172,6 @@ elif page == "LIME 可视化解释":
                 st.components.v1.html(lime_exp.as_html(), height=800, scrolling=True)
         else:
             st.error("模型或数据未能成功加载，无法生成解释。")
+
 
 
