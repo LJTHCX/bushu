@@ -44,14 +44,35 @@ def load_model():
         return None
 
 # 加载资源
-X_train = load_data()
+X_train_original = load_data()
 model = load_model()
 
-# 只有在数据成功加载后才获取特征名称
-if X_train is not None:
+# --- 关键修复：确保所有数据（包括 X_train）都严格遵循模型的特征顺序 ---
+if model is not None and X_train_original is not None:
+    try:
+        # 1. 从模型获取权威的特征名称和顺序
+        # .feature_names_in_ 是 scikit-learn 兼容模型中的标准属性
+        authoritative_feature_names = list(model.feature_names_in_)
+    except AttributeError:
+        # 为可能不含该属性的旧版本模型提供后备方案
+        authoritative_feature_names = model.get_booster().feature_names
+
+    try:
+        # 2. 强制 X_train 使用模型的特征顺序
+        X_train = X_train_original[authoritative_feature_names]
+        feature_names = X_train.columns.tolist()
+    except KeyError:
+        st.error("错误：'数据.xlsx' 中的列与模型训练时使用的列不匹配。请确保数据文件正确。")
+        X_train = None
+        feature_names = []
+
+elif X_train_original is not None:
+    # 如果模型加载失败，则退回使用文件中的顺序
+    X_train = X_train_original
     feature_names = X_train.columns.tolist()
 else:
-    feature_names = [] # 如果数据加载失败，提供一个空列表以避免错误
+    X_train = None
+    feature_names = []
 
 
 # --- 用户输入功能模块 ---
@@ -62,7 +83,7 @@ def user_input_features():
         '原始读段数': st.sidebar.number_input('原始读段数', 1000000, 20000000, 6000000, 1000),
         '在参考基因组上比对的比例': st.sidebar.slider('基因组比对比例', 0.5, 1.0, 0.8, 0.01),
         '重复读段的比例': st.sidebar.slider('重复读段比例', 0.0, 0.2, 0.05, 0.001),
-        '唯一比对的读段数': st.sidebar.number_input('唯一比对读段数', 1000000, 20000000, 4500000, 1000),
+        '唯一比对的读段数': st.sidebar.number_input('唯一比对的读段数', 1000000, 20000000, 4500000, 1000),
         'GC含量': st.sidebar.slider('GC含量', 0.3, 0.5, 0.4, 0.001),
         '13号染色体的Z值': st.sidebar.slider('13号染色体Z值', -10.0, 10.0, 0.0, 0.1),
         '18号染色体的Z值': st.sidebar.slider('18号染色体Z值', -10.0, 10.0, 0.0, 0.1),
@@ -78,9 +99,9 @@ def user_input_features():
     }
     input_df = pd.DataFrame([feature_values])
     
-    # --- 关键修复 ---
     # 确保输入数据的列顺序与模型训练时完全一致
-    if feature_names: # 检查 feature_names 是否为空
+    # 因为 feature_names 现在保证是正确的顺序，此修复依然有效且关键
+    if feature_names:
         return input_df[feature_names]
     return input_df
 
@@ -107,26 +128,22 @@ if page == "在线预测 (Online Prediction)":
     with col2:
         st.subheader("预测结果:")
         if st.button("开始预测"):
-            if model is not None:
-                # 确保输入的列名和顺序正确
-                if list(input_df.columns) == feature_names:
-                    prediction_proba = model.predict_proba(input_df)
-                    aneuploidy_prob = prediction_proba[0, 1]
+            if model is not None and feature_names:
+                prediction_proba = model.predict_proba(input_df)
+                aneuploidy_prob = prediction_proba[0, 1]
 
-                    st.write(f"根据您输入的指标，模型预测 **染色体非整倍体 (Aneuploidy) 的风险概率为：**")
+                st.write(f"根据您输入的指标，模型预测 **染色体非整倍体 (Aneuploidy) 的风险概率为：**")
 
-                    if aneuploidy_prob > 0.5:
-                        st.markdown(f"<h1 style='text-align: center; color: red;'>{aneuploidy_prob:.2%}</h1>",
-                                    unsafe_allow_html=True)
-                        st.warning("**风险提示：** 预测风险较高，建议咨询专业医生进行进一步诊断。")
-                    else:
-                        st.markdown(f"<h1 style='text-align: center; color: green;'>{aneuploidy_prob:.2%}</h1>",
-                                    unsafe_allow_html=True)
-                        st.success("**风险提示：** 预测风险较低。请注意，本结果仅供参考。")
+                if aneuploidy_prob > 0.5:
+                    st.markdown(f"<h1 style='text-align: center; color: red;'>{aneuploidy_prob:.2%}</h1>",
+                                unsafe_allow_html=True)
+                    st.warning("**风险提示：** 预测风险较高，建议咨询专业医生进行进一步诊断。")
                 else:
-                    st.error("输入数据的特征与模型训练时的特征不匹配，无法预测。")
+                    st.markdown(f"<h1 style='text-align: center; color: green;'>{aneuploidy_prob:.2%}</h1>",
+                                unsafe_allow_html=True)
+                    st.success("**风险提示：** 预测风险较低。请注意，本结果仅供参考。")
             else:
-                st.error("模型未能成功加载，无法进行预测。")
+                st.error("模型或数据未能成功加载，无法进行预测。")
 
 # --- 页面2：LIME 可视化解释 ---
 elif page == "LIME 可视化解释":
