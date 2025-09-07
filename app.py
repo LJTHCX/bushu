@@ -21,7 +21,7 @@ plt.rcParams['axes.unicode_minus'] = False
 def load_data():
     """加载原始数据用于获取特征名称和LIME背景数据"""
     try:
-        df = pd.read_excel('数据.xlsx')
+        df = pd.read_excel('特征数据.xlsx')
         if '染色体的非整倍体' in df.columns:
             X = df.drop('染色体的非整倍体', axis=1)
         else:
@@ -62,7 +62,7 @@ if model is not None and X_train_original is not None:
         X_train = X_train_original[authoritative_feature_names]
         feature_names = X_train.columns.tolist()
     except KeyError:
-        st.error("错误：'数据.xlsx' 中的列与模型训练时使用的列不匹配。请确保数据文件正确。")
+        st.error("错误：'特征数据.xlsx' 中的列与模型训练时使用的列不匹配。请确保数据文件正确。")
         X_train = None
         feature_names = []
 
@@ -172,4 +172,5 @@ elif page == "LIME 可视化解释":
                 st.components.v1.html(lime_exp.as_html(), height=800, scrolling=True)
         else:
             st.error("模型或数据未能成功加载，无法生成解释。")
+
 
