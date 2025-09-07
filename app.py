@@ -1,5 +1,5 @@
 import streamlit as st
-import joblib  # 1. 从 pickle 改为 joblib
+import joblib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -20,14 +20,11 @@ plt.rcParams['axes.unicode_minus'] = False
 @st.cache_data
 def load_data():
     """加载原始数据用于获取特征名称和LIME背景数据"""
-    # 为了部署方便，通常建议将数据文件和应用代码放在一起
     try:
         df = pd.read_excel('数据.xlsx')
-        # 确保列名与模型训练时一致
         if '染色体的非整倍体' in df.columns:
             X = df.drop('染色体的非整倍体', axis=1)
         else:
-            # 如果目标变量不存在，假定所有列都是特征
             X = df
         return X
     except FileNotFoundError:
@@ -37,18 +34,14 @@ def load_data():
 
 @st.cache_resource
 def load_model():
-    """加载预训练的XGBoost模型"""  # 2. 更新注释
+    """加载预训练的XGBoost模型"""
     try:
-        # 3. 更新模型文件名并使用 joblib.load
         with open('model.joblib', 'rb') as f:
             model = joblib.load(f)
         return model
     except FileNotFoundError:
-        # 4. 更新错误提示信息
         st.error("错误：找不到 'model.joblib' 文件。请确保您已运行训练脚本并生成了模型文件。")
         return None
-
-
 
 # 加载资源
 X_train = load_data()
@@ -84,6 +77,11 @@ def user_input_features():
         '生产次数': st.sidebar.number_input('生产次数', 0, 10, 0, 1)
     }
     input_df = pd.DataFrame([feature_values])
+    
+    # --- 关键修复 ---
+    # 确保输入数据的列顺序与模型训练时完全一致
+    if feature_names: # 检查 feature_names 是否为空
+        return input_df[feature_names]
     return input_df
 
 
@@ -110,19 +108,23 @@ if page == "在线预测 (Online Prediction)":
         st.subheader("预测结果:")
         if st.button("开始预测"):
             if model is not None:
-                prediction_proba = model.predict_proba(input_df)
-                aneuploidy_prob = prediction_proba[0, 1]
+                # 确保输入的列名和顺序正确
+                if list(input_df.columns) == feature_names:
+                    prediction_proba = model.predict_proba(input_df)
+                    aneuploidy_prob = prediction_proba[0, 1]
 
-                st.write(f"根据您输入的指标，模型预测 **染色体非整倍体 (Aneuploidy) 的风险概率为：**")
+                    st.write(f"根据您输入的指标，模型预测 **染色体非整倍体 (Aneuploidy) 的风险概率为：**")
 
-                if aneuploidy_prob > 0.5:
-                    st.markdown(f"<h1 style='text-align: center; color: red;'>{aneuploidy_prob:.2%}</h1>",
-                                unsafe_allow_html=True)
-                    st.warning("**风险提示：** 预测风险较高，建议咨询专业医生进行进一步诊断。")
+                    if aneuploidy_prob > 0.5:
+                        st.markdown(f"<h1 style='text-align: center; color: red;'>{aneuploidy_prob:.2%}</h1>",
+                                    unsafe_allow_html=True)
+                        st.warning("**风险提示：** 预测风险较高，建议咨询专业医生进行进一步诊断。")
+                    else:
+                        st.markdown(f"<h1 style='text-align: center; color: green;'>{aneuploidy_prob:.2%}</h1>",
+                                    unsafe_allow_html=True)
+                        st.success("**风险提示：** 预测风险较低。请注意，本结果仅供参考。")
                 else:
-                    st.markdown(f"<h1 style='text-align: center; color: green;'>{aneuploidy_prob:.2%}</h1>",
-                                unsafe_allow_html=True)
-                    st.success("**风险提示：** 预测风险较低。请注意，本结果仅供参考。")
+                    st.error("输入数据的特征与模型训练时的特征不匹配，无法预测。")
             else:
                 st.error("模型未能成功加载，无法进行预测。")
 
@@ -133,7 +135,6 @@ elif page == "LIME 可视化解释":
         "LIME 从局部角度解释单个预测。它告诉我们对于您输入的这个特定样本，哪些特征及其数值最重要地影响了最终的预测结果。")
     st.write("---")
 
-    # 确保所有资源都已加载
     if st.button("生成LIME解释图"):
         if model is not None and X_train is not None:
             with st.spinner('正在计算LIME解释，请稍候...'):
@@ -154,3 +155,4 @@ elif page == "LIME 可视化解释":
                 st.components.v1.html(lime_exp.as_html(), height=800, scrolling=True)
         else:
             st.error("模型或数据未能成功加载，无法生成解释。")
+
